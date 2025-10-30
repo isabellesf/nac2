@@ -1,5 +1,7 @@
 using Repository;
 using Service;
+using System.Net; // Re-adicionando para o tratamento de exceção
+using Microsoft.Extensions.Logging; // Re-adicionando para o tratamento de exceção
 using Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,13 +20,23 @@ builder.Services.AddDbContext<EstoqueContext>(options =>
 );
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<IVehicleRepository, VehicleRepository>(provider =>
+// Configuração dos Repositórios (Persistence)
+builder.Services.AddScoped<IProdutoRepository, ProdutoRepository>();
+builder.Services.AddScoped<IMovimentacaoRepository, MovimentacaoRepository>();
+
+// Configuração dos Serviços (Service)
+builder.Services.AddScoped<IProdutoService, ProdutoService>();
+builder.Services.AddScoped<IMovimentacaoService, MovimentacaoService>();
+builder.Services.AddScoped<IRelatorioService, RelatorioService>();
+
+// builder.Services.AddScoped<IVehicleRepository, VehicleRepository>(provider =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
                            ?? "Server=localhost;Database=fiap;User=root;Password=123;Port=3306;";
     
     return new VehicleRepository(connectionString);
 });
+// Fim da injeção de dependência original (comentada para evitar conflitos)
 
 // Registrar o CacheService
 builder.Services.AddSingleton<ICacheService, CacheService>();
