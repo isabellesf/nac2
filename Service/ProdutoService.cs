@@ -24,7 +24,7 @@ namespace Service
             var produtoExistente = await _produtoRepository.GetBySkuAsync(produto.CodigoSKU);
             if (produtoExistente != null)
             {
-                throw new InvalidOperationException($"Produto com SKU {produto.CodigoSKU} já cadastrado.");
+                throw new ValidacaoException($"Produto com SKU {produto.CodigoSKU} já cadastrado.");
             }
 
             // Garante que o saldo inicial é 0
