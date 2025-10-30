@@ -2,6 +2,7 @@ using Repository;
 using Service;
 using System.Net; // Re-adicionando para o tratamento de exceção
 using Microsoft.Extensions.Logging; // Re-adicionando para o tratamento de exceção
+using Domain; // Adicionando para usar as exceções personalizadas
 using Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,15 +59,27 @@ app.UseExceptionHandler(errorApp =>
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
         context.Response.ContentType = "application/json";
 
-        var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        var exception = exceptionHandlerPathFeature?.Error;
+
         if (exception != null)
         {
             var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-            logger.LogError(exception.Error, "Erro não tratado capturado pelo middleware global");
+            logger.LogError(exception, "Erro capturado pelo middleware global");
+
+            // Mapeamento de Exceções Personalizadas para Status HTTP
+            context.Response.StatusCode = exception switch
+            {
+                Domain.ProdutoNaoEncontradoException => (int)System.Net.HttpStatusCode.NotFound, // 404
+                Domain.ValidacaoException => (int)System.Net.HttpStatusCode.BadRequest, // 400
+                Domain.EstoqueInsuficienteException => (int)System.Net.HttpStatusCode.BadRequest, // 400
+                _ => (int)System.Net.HttpStatusCode.InternalServerError // 500
+            };
 
             var errorResponse = new
             {
-                message = "Erro interno do servidor",
+                status = context.Response.StatusCode,
+                message = exception.Message,
                 timestamp = DateTime.UtcNow,
                 requestId = context.TraceIdentifier
             };
