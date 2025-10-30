@@ -22,19 +22,19 @@ namespace Service
 
             if (produto == null)
             {
-                throw new ApplicationException($"Produto com SKU {produtoSku} não encontrado.");
+                throw new ProdutoNaoEncontradoException(produtoSku);
             }
 
             // Regra de Negócio: Validar quantidade positiva
             if (movimentacao.Quantidade <= 0)
             {
-                throw new ArgumentException("A quantidade de entrada deve ser positiva.");
+                throw new ValidacaoException("A quantidade de entrada deve ser positiva.");
             }
 
             // Regra de Negócio: Validar data de validade para perecíveis
             if (produto.Categoria == CategoriaProduto.PERECIVEL && !movimentacao.IsValidaParaProdutoPerecivel(produto.Categoria))
             {
-                throw new ArgumentException("Produtos perecíveis requerem Lote e Data de Validade.");
+                throw new ValidacaoException("Produtos perecíveis requerem Lote e Data de Validade.");
             }
 
             // Atualizar Saldo do Produto
@@ -57,24 +57,39 @@ namespace Service
 
             if (produto == null)
             {
-                throw new ApplicationException($"Produto com SKU {produtoSku} não encontrado.");
+                throw new ProdutoNaoEncontradoException(produtoSku);
             }
 
             // Regra de Negócio: Validar quantidade positiva
             if (movimentacao.Quantidade <= 0)
             {
-                throw new ArgumentException("A quantidade de saída deve ser positiva.");
+                throw new ValidacaoException("A quantidade de saída deve ser positiva.");
             }
 
             // Regra de Negócio: Verificar estoque suficiente para saídas
             if (produto.QuantidadeEmEstoque < movimentacao.Quantidade)
             {
-                throw new InvalidOperationException($"Estoque insuficiente. Saldo atual: {produto.QuantidadeEmEstoque}, Saída solicitada: {movimentacao.Quantidade}.");
+                throw new EstoqueInsuficienteException(produtoSku, produto.QuantidadeEmEstoque, movimentacao.Quantidade);
             }
 
-            // Regra de Negócio: Validar data de validade para perecíveis (apenas se for relevante para rastreio)
-            // Para a saída, a validação principal é o estoque. A validação de lote/validade é mais crítica na ENTRADA.
-            // Para simplificar a Etapa 2, focaremos na validação de entrada.
+            // Regra de Negócio: Produto perecível não pode ter movimentação após data de validade
+            if (produto.Categoria == CategoriaProduto.PERECIVEL)
+            {
+                // Para simplificar, vamos assumir que a movimentação de saída é de um lote que já venceu.
+                // Em um sistema real, seria necessário rastrear o lote específico que está saindo.
+                // Aqui, vamos apenas verificar se o produto tem alguma movimentação de entrada vencida.
+                
+                var movimentacoesVencidas = produto.Movimentacoes
+                    .Where(m => m.Tipo == TipoMovimentacao.ENTRADA && 
+                                m.DataValidade.HasValue && 
+                                m.DataValidade.Value.Date < DateTime.Today.Date)
+                    .ToList();
+                
+                if (movimentacoesVencidas.Any())
+                {
+                    throw new ValidacaoException($"Não é possível registrar saída: o produto {produtoSku} possui lotes vencidos em estoque.");
+                }
+            }
 
             // Atualizar Saldo do Produto
             produto.QuantidadeEmEstoque -= movimentacao.Quantidade;
